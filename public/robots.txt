@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /$
+Allow: /login
+Allow: /cadastro
+Disallow: /admin
+Disallow: /perfil
+
+Sitemap: https://jornada-reversa.vercel.app/sitemap.xml

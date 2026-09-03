@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Arquitetura SPX Reversa</title>
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#FBFAF8; --surface:#FFFFFF; --surface-2:#F5F3EF;
+    --ink:#16191F; --ink-soft:#454C5A; --muted:#6E7686;
+    --line:#E6E2DB; --line-soft:#EFEBE4;
+    --accent:#EE4D2D; --accent-soft:#FCEAE4; --accent-ink:#B8371C;
+    --info:#2563EB; --info-soft:#E6EDFD;
+    --ok:#16A34A; --ok-soft:#E4F4EA;
+    --violet:#7C3AED; --violet-soft:#EFE7FD;
+    --panel:#0C1017; --on-panel:#EAECEF; --on-panel-soft:#9BA3B2;
+    --shadow:0 1px 2px rgba(20,18,15,.04),0 8px 28px rgba(20,18,15,.06);
+  }
+  :root:not([data-theme="light"]){
+    @media (prefers-color-scheme:dark){
+      --bg:#0B0D11; --surface:#14171D; --surface-2:#1B1F27;
+      --ink:#ECEEF2; --ink-soft:#BEC5D1; --muted:#8A93A2;
+      --line:#262B34; --line-soft:#1E232B;
+      --accent:#FF6A43; --accent-soft:#2A1911; --accent-ink:#FF8A6B;
+      --info:#5B8DEF; --info-soft:#141E30;
+      --ok:#34D399; --ok-soft:#0E2019;
+      --violet:#A57CF3; --violet-soft:#1C1630;
+      --panel:#05070A; --on-panel:#EAECEF; --on-panel-soft:#8A93A2;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0B0D11; --surface:#14171D; --surface-2:#1B1F27;
+    --ink:#ECEEF2; --ink-soft:#BEC5D1; --muted:#8A93A2;
+    --line:#262B34; --line-soft:#1E232B;
+    --accent:#FF6A43; --accent-soft:#2A1911; --accent-ink:#FF8A6B;
+    --info:#5B8DEF; --info-soft:#141E30;
+    --ok:#34D399; --ok-soft:#0E2019;
+    --violet:#A57CF3; --violet-soft:#1C1630;
+    --panel:#05070A; --on-panel:#EAECEF; --on-panel-soft:#8A93A2;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+    font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:940px; margin:0 auto; padding:0 24px}
+  .prose{max-width:72ch}
+
+  /* ---- Top bar ---- */
+  .topbar{
+    position:sticky; top:0; z-index:20; background:color-mix(in srgb,var(--bg) 72%,transparent);
+    backdrop-filter:blur(18px) saturate(160%); -webkit-backdrop-filter:blur(18px) saturate(160%);
+    border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent);
+  }
+  .topbar .wrap{display:flex; align-items:center; justify-content:space-between; height:56px; max-width:940px}
+  .brand{display:flex; align-items:center; gap:10px; font-family:"Archivo",sans-serif; font-weight:700; letter-spacing:-.01em}
+  .brand .dot{width:12px;height:12px;border-radius:3px;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .brand small{font-family:"IBM Plex Mono",monospace; font-weight:500; color:var(--muted); font-size:12px}
+  .toc{display:flex; gap:18px; font-size:13px; font-weight:500}
+  .toc a{color:var(--muted); text-decoration:none}
+  .toc a:hover{color:var(--accent)}
+  @media(max-width:720px){.toc{display:none}}
+
+  /* ---- Hero ---- */
+  header.hero{padding:64px 0 40px; border-bottom:1px solid var(--line)}
+  .eyebrow{font-family:"IBM Plex Mono",monospace; text-transform:uppercase; letter-spacing:.16em; font-size:12px; font-weight:600; color:var(--accent-ink)}
+  h1{font-family:"Archivo",sans-serif; font-weight:800; font-size:clamp(2.1rem,5vw,3.1rem); line-height:1.04; letter-spacing:-.02em; margin:.5rem 0 0; text-wrap:balance}
+  .lede{font-size:1.15rem; color:var(--ink-soft); max-width:64ch; margin:1.1rem 0 0}
+  .meta{display:flex; flex-wrap:wrap; gap:10px; margin-top:26px}
+  .chip{display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-family:"IBM Plex Mono",monospace; font-weight:500;
+    padding:6px 11px; border-radius:999px; background:var(--surface-2); border:1px solid var(--line); color:var(--ink-soft)}
+  .chip b{color:var(--ink); font-weight:600}
+
+  /* ---- Sections ---- */
+  section{padding:52px 0; border-bottom:1px solid var(--line-soft)}
+  .snum{font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--accent); font-weight:600; letter-spacing:.1em}
+  h2{font-family:"Archivo",sans-serif; font-weight:700; font-size:1.7rem; letter-spacing:-.015em; margin:.2rem 0 0; text-wrap:balance}
+  h3{font-family:"Archivo",sans-serif; font-weight:650; font-size:1.12rem; letter-spacing:-.01em; margin:2rem 0 .4rem}
+  p{margin:.7rem 0}
+  .prose p{color:var(--ink-soft)}
+  strong{color:var(--ink); font-weight:600}
+  code{font-family:"IBM Plex Mono",monospace; font-size:.86em; background:var(--surface-2); border:1px solid var(--line);
+    padding:1px 6px; border-radius:5px; color:var(--accent-ink)}
+  a.inline{color:var(--accent); text-decoration:none; border-bottom:1px solid color-mix(in srgb,var(--accent) 35%,transparent)}
+
+  /* ---- Cards grid ---- */
+  .grid{display:grid; gap:14px; margin-top:22px}
+  .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:680px){.g2,.g3{grid-template-columns:1fr}}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:18px 18px; box-shadow:var(--shadow)}
+  .card .k{font-family:"IBM Plex Mono",monospace; font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); font-weight:600}
+  .card h4{margin:.35rem 0 .3rem; font-family:"Archivo",sans-serif; font-size:1.02rem; font-weight:650; letter-spacing:-.01em}
+  .card p{margin:0; font-size:.9rem; color:var(--ink-soft)}
+
+  /* ---- Diagram ---- */
+  .figure{margin:26px 0 6px; background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:22px; box-shadow:var(--shadow); overflow-x:auto}
+  .figcap{font-size:12.5px; color:var(--muted); margin-top:12px; font-family:"IBM Plex Mono",monospace}
+  svg{display:block; max-width:100%; height:auto}
+  .n-fill{fill:var(--surface)} .n-stroke{stroke:var(--line)}
+  .lbl{fill:var(--ink); font-family:"Archivo",sans-serif; font-weight:650}
+  .sub{fill:var(--muted); font-family:"IBM Plex Mono",monospace}
+  .flow{stroke:var(--muted)} .flowfill{fill:var(--muted)}
+  .a-accent{fill:var(--accent)} .a-info{fill:var(--info)} .a-violet{fill:var(--violet)} .a-ok{fill:var(--ok)}
+
+  /* ---- Table ---- */
+  .tablewrap{overflow-x:auto; margin:22px 0 4px; border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow)}
+  table{border-collapse:collapse; width:100%; min-width:560px; font-size:14px; background:var(--surface)}
+  th,td{text-align:left; padding:11px 15px; border-bottom:1px solid var(--line-soft); vertical-align:top}
+  thead th{background:var(--surface-2); font-family:"IBM Plex Mono",monospace; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:600}
+  tbody tr:last-child td{border-bottom:none}
+  td code{white-space:nowrap}
+  .tag{display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:600; padding:2px 8px; border-radius:6px}
+  .t-content{background:var(--accent-soft); color:var(--accent-ink)}
+  .t-access{background:var(--info-soft); color:var(--info)}
+  .t-quiz{background:var(--violet-soft); color:var(--violet)}
+  .t-config{background:var(--ok-soft); color:var(--ok)}
+  .t-sec{background:#FBE7E4; color:#B4341A}
+  :root[data-theme="dark"] .t-sec{background:#2B1613; color:#F0977D}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .t-sec{background:#2B1613; color:#F0977D}}
+
+  /* ---- Flow steps ---- */
+  ol.steps{counter-reset:s; list-style:none; padding:0; margin:22px 0 0; display:grid; gap:12px}
+  ol.steps li{position:relative; padding:14px 16px 14px 52px; background:var(--surface); border:1px solid var(--line); border-radius:12px}
+  ol.steps li::before{counter-increment:s; content:counter(s); position:absolute; left:14px; top:14px; width:26px; height:26px;
+    display:grid; place-items:center; border-radius:8px; background:var(--accent); color:#fff; font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:13px}
+  ol.steps li b{font-family:"Archivo",sans-serif}
+  ol.steps li span{color:var(--ink-soft); font-size:.92rem}
+
+  ul.clean{list-style:none; padding:0; margin:14px 0 0; display:grid; gap:9px}
+  ul.clean li{padding-left:22px; position:relative; color:var(--ink-soft); font-size:.94rem}
+  ul.clean li::before{content:""; position:absolute; left:4px; top:.62em; width:7px; height:7px; border-radius:2px; background:var(--accent)}
+
+  .callout{margin:24px 0 0; background:var(--surface-2); border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:10px; padding:16px 18px}
+  .callout .k{font-family:"IBM Plex Mono",monospace; font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--accent-ink); font-weight:600}
+  .callout p{margin:.35rem 0 0; font-size:.92rem; color:var(--ink-soft)}
+
+  /* ---- Performance ---- */
+  .scores{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:22px}
+  @media(max-width:680px){.scores{grid-template-columns:repeat(2,1fr)}}
+  .score{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:18px 14px; text-align:center; box-shadow:var(--shadow)}
+  .ring{--v:0; --c:var(--ok); width:76px; height:76px; margin:0 auto; border-radius:50%;
+    background:conic-gradient(var(--c) calc(var(--v)*3.6deg), var(--surface-2) 0);
+    display:grid; place-items:center}
+  .ring::after{content:""; position:absolute}
+  .ring i{width:58px; height:58px; border-radius:50%; background:var(--surface); display:grid; place-items:center;
+    font-family:"Archivo",sans-serif; font-weight:750; font-size:1.25rem; font-style:normal; color:var(--ink)}
+  .score .name{font-family:"IBM Plex Mono",monospace; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:600; margin-top:12px}
+  .vitals{display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-top:16px}
+  @media(max-width:680px){.vitals{grid-template-columns:repeat(2,1fr)}}
+  .vital{background:var(--surface-2); border:1px solid var(--line); border-radius:11px; padding:13px 12px}
+  .vital .vk{font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:var(--muted); font-weight:600; letter-spacing:.03em}
+  .vital .vv{font-family:"Archivo",sans-serif; font-weight:750; font-size:1.35rem; letter-spacing:-.02em; margin-top:4px; font-variant-numeric:tabular-nums}
+  .vital .vs{font-size:11px; font-weight:600; margin-top:2px}
+  .good{color:var(--ok)} .warnv{color:#C77400} :root[data-theme="dark"] .warnv,:root:not([data-theme="light"]) .warnv{color:#E8A33D}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .warnv{color:#E8A33D}}
+
+  footer{padding:40px 0 70px; color:var(--muted); font-size:13px; font-family:"IBM Plex Mono",monospace}
+  footer .wrap{display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px}
+</style>
+</head>
+<body>
+
+
+<div class="topbar"><div class="wrap">
+  <div class="brand"><span class="dot"></span>SPX&nbsp;Reversa <small>arquitetura</small></div>
+  <nav class="toc">
+    <a href="#stack">Stack</a>
+    <a href="#fluxo">Fluxo</a>
+    <a href="#dados">Dados</a>
+    <a href="#relacoes">Relações</a>
+    <a href="#seg">Segurança</a>
+    <a href="#auditoria">Auditoria</a>
+    <a href="#perf">Velocidade</a>
+  </nav>
+</div></div>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">Documentação técnica · ponta a ponta</div>
+  <h1>Como o portal SPX Reversa é construído e onde a informação vive</h1>
+  <p class="lede">Do navegador do operador até a linha no banco de dados: a tecnologia, as camadas de código, o modelo de dados e — o mais importante — como cada informação se conecta e “conversa” com as outras.</p>
+  <div class="meta">
+    <span class="chip">🌐 <b>jornada-reversa.vercel.app</b></span>
+    <span class="chip">⚛️ React&nbsp;+&nbsp;Vite&nbsp;+&nbsp;TypeScript</span>
+    <span class="chip">🗄️ Supabase&nbsp;/&nbsp;Postgres</span>
+    <span class="chip">🔒 RLS&nbsp;no&nbsp;banco</span>
+  </div>
+</header>
+
+<!-- 1 · VISÃO GERAL -->
+<section id="visao">
+  <div class="snum">01 — VISÃO GERAL</div>
+  <h2>O que é o sistema</h2>
+  <div class="prose">
+    <p>O <strong>SPX Reversa</strong> é o portal corporativo da Logística Reversa da Shopee: um “jornal + central de conhecimento” interno onde a equipe consulta procedimentos (POPs), notícias, dashboards, ferramentas, vagas, o time, projetos e um quiz semanal. Tudo é protegido por login e por aprovação — <strong>quem não tem acesso não enxerga nada</strong> do conteúdo.</p>
+    <p>Ele tem duas faces na mesma aplicação: o <strong>portal público interno</strong> (o que o operador vê) e um <strong>painel administrativo</strong> (onde o admin cria, edita e publica todo o conteúdo, controla acessos, abas e o quiz).</p>
+  </div>
+
+  <div class="grid g3">
+    <div class="card"><div class="k">Camada 1 · Cliente</div><h4>Navegador</h4><p>Aplicação React que roda inteira no navegador (SPA). Renderiza as telas e conversa com o backend por HTTPS.</p></div>
+    <div class="card"><div class="k">Camada 2 · Entrega</div><h4>Vercel (CDN)</h4><p>Hospeda e distribui os arquivos estáticos na borda. É de onde o site “baixa”. Publica automático a cada push na <code>main</code>.</p></div>
+    <div class="card"><div class="k">Camada 3 · Dados</div><h4>Supabase</h4><p>Banco Postgres + Autenticação + Storage de imagens. É o cérebro: guarda tudo e decide quem vê o quê.</p></div>
+  </div>
+</section>
+
+<!-- 2 · ARQUITETURA -->
+<section id="arq">
+  <div class="snum">02 — ARQUITETURA</div>
+  <h2>O caminho da informação, ponta a ponta</h2>
+  <div class="prose"><p>Uma requisição nasce no navegador, passa pela CDN da Vercel (só para carregar o app) e vai direto ao Supabase para ler/gravar dados. O banco aplica as regras de segurança (<strong>RLS</strong>) antes de devolver qualquer linha.</p></div>
+
+  <div class="figure">
+    <svg viewBox="0 0 860 430" role="img" aria-label="Diagrama de arquitetura ponta a ponta">
+      <!-- columns -->
+      <!-- Client -->
+      <rect x="20" y="40" width="240" height="350" rx="14" class="n-fill n-stroke" stroke-width="1.5"/>
+      <text x="40" y="70" class="sub" font-size="11">CLIENTE (NAVEGADOR)</text>
+      <circle cx="45" cy="92" r="4" class="a-accent"/>
+      <text x="58" y="96" class="lbl" font-size="14">Aplicação React (SPA)</text>
+      <rect x="40" y="112" width="200" height="60" rx="9" class="n-fill n-stroke" stroke-width="1"/>
+      <text x="52" y="132" class="lbl" font-size="12.5">Telas / Componentes</text>
+      <text x="52" y="150" class="sub" font-size="10.5">pages/ · components/</text>
+      <text x="52" y="164" class="sub" font-size="10.5">React Router (URLs)</text>
+      <rect x="40" y="184" width="200" height="58" rx="9" class="n-fill n-stroke" stroke-width="1"/>
+      <text x="52" y="204" class="lbl" font-size="12.5">Camada de dados</text>
+      <text x="52" y="222" class="sub" font-size="10.5">src/data/*.ts (getNews, …)</text>
+      <text x="52" y="235" class="sub" font-size="10.5">mapeia banco → app</text>
+      <rect x="40" y="254" width="200" height="52" rx="9" class="n-fill n-stroke" stroke-width="1"/>
+      <text x="52" y="274" class="lbl" font-size="12.5">Cliente Supabase</text>
+      <text x="52" y="291" class="sub" font-size="10.5">lib/supabase.ts (1 conexão)</text>
+      <rect x="40" y="318" width="200" height="52" rx="9" style="fill:var(--accent-soft)" stroke="var(--accent)" stroke-width="1"/>
+      <text x="52" y="338" class="lbl" font-size="12.5" style="fill:var(--accent-ink)">Sessão / Login</text>
+      <text x="52" y="355" class="sub" font-size="10.5" style="fill:var(--accent-ink)">auth.tsx · token JWT</text>
+
+      <!-- Vercel -->
+      <rect x="310" y="120" width="180" height="120" rx="14" class="n-fill n-stroke" stroke-width="1.5"/>
+      <text x="330" y="150" class="sub" font-size="11">ENTREGA</text>
+      <circle cx="335" cy="172" r="4" class="a-info"/>
+      <text x="348" y="176" class="lbl" font-size="14">Vercel · CDN</text>
+      <text x="330" y="200" class="sub" font-size="10.5">Serve HTML/JS/CSS</text>
+      <text x="330" y="216" class="sub" font-size="10.5">na borda (rápido)</text>
+      <text x="330" y="232" class="sub" font-size="10.5">Deploy via push→main</text>
+
+      <!-- Supabase -->
+      <rect x="560" y="40" width="280" height="350" rx="14" class="n-fill n-stroke" stroke-width="1.5"/>
+      <text x="582" y="70" class="sub" font-size="11">SUPABASE (BACKEND)</text>
+
+      <rect x="582" y="86" width="236" height="66" rx="9" style="fill:var(--accent-soft)" stroke="var(--accent)" stroke-width="1"/>
+      <text x="596" y="108" class="lbl" font-size="13" style="fill:var(--accent-ink)">🔒 RLS — Portaria de segurança</text>
+      <text x="596" y="126" class="sub" font-size="10.5" style="fill:var(--accent-ink)">is_approved() · is_admin()</text>
+      <text x="596" y="141" class="sub" font-size="10.5" style="fill:var(--accent-ink)">filtra TODA leitura/escrita</text>
+
+      <rect x="582" y="164" width="236" height="70" rx="9" class="n-fill n-stroke" stroke-width="1"/>
+      <text x="596" y="186" class="lbl" font-size="13">Postgres — 22 tabelas</text>
+      <text x="596" y="204" class="sub" font-size="10.5">conteúdo · acessos · quiz</text>
+      <text x="596" y="219" class="sub" font-size="10.5">+ funções (grading, views…)</text>
+
+      <rect x="582" y="246" width="112" height="64" rx="9" class="n-fill n-stroke" stroke-width="1"/>
+      <text x="596" y="268" class="lbl" font-size="12.5">Auth</text>
+      <text x="596" y="285" class="sub" font-size="10">E-mail+senha</text>
+      <text x="596" y="299" class="sub" font-size="10">/ OpsID</text>
+
+      <rect x="706" y="246" width="112" height="64" rx="9" class="n-fill n-stroke" stroke-width="1"/>
+      <text x="720" y="268" class="lbl" font-size="12.5">Storage</text>
+      <text x="720" y="285" class="sub" font-size="10">avatars ·</text>
+      <text x="720" y="299" class="sub" font-size="10">media (img)</text>
+
+      <rect x="582" y="322" width="236" height="48" rx="9" class="n-fill n-stroke" stroke-width="1"/>
+      <text x="596" y="343" class="lbl" font-size="12.5">Triggers</text>
+      <text x="596" y="359" class="sub" font-size="10.5">novo usuário → cria perfil</text>
+
+      <!-- arrows client -> vercel (load) -->
+      <defs>
+        <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+          <path d="M0,0 L9,4.5 L0,9 z" class="flowfill"/>
+        </marker>
+      </defs>
+      <line x1="260" y1="150" x2="308" y2="160" class="flow" stroke-width="1.6" marker-end="url(#ar)"/>
+      <text x="262" y="140" class="sub" font-size="9.5">carrega app</text>
+
+      <!-- arrows client -> supabase (data), routed below the Vercel card -->
+      <path d="M260 290 C 400 322, 500 306, 558 205" fill="none" class="flow" stroke-width="1.8" marker-end="url(#ar)"/>
+      <text x="330" y="300" class="sub" font-size="9.5">lê / grava dados (HTTPS)</text>
+      <path d="M558 355 C 470 372, 400 356, 262 332" fill="none" class="flow" stroke-width="1.4" stroke-dasharray="4 4" marker-end="url(#ar)"/>
+      <text x="330" y="382" class="sub" font-size="9.5">devolve só o que o RLS permite</text>
+    </svg>
+    <div class="figcap">Fig. 1 — O navegador carrega o app pela Vercel, mas os dados vão e voltam direto do Supabase, sempre filtrados pelo RLS.</div>
+  </div>
+</section>
+
+<!-- 3 · STACK -->
+<section id="stack">
+  <div class="snum">03 — TECNOLOGIA</div>
+  <h2>Com o que o site é construído</h2>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Camada</th><th>Tecnologia</th><th>Para que serve</th></tr></thead>
+      <tbody>
+        <tr><td>Linguagem</td><td><code>TypeScript</code></td><td>JavaScript com tipos — menos erro, mais segurança no código.</td></tr>
+        <tr><td>Interface</td><td><code>React 18</code></td><td>Monta as telas em componentes reutilizáveis.</td></tr>
+        <tr><td>Build</td><td><code>Vite 5</code></td><td>Empacota e otimiza o código para produção (o “compilador”).</td></tr>
+        <tr><td>Estilo</td><td><code>Tailwind CSS</code></td><td>Design system por classes utilitárias; cores/tokens centralizados.</td></tr>
+        <tr><td>Rotas</td><td><code>React Router 6</code></td><td>Controla as URLs e qual tela aparece (SPA, sem recarregar a página).</td></tr>
+        <tr><td>Ícones</td><td><code>lucide-react</code></td><td>Biblioteca de ícones usada em todo o portal.</td></tr>
+        <tr><td>Backend</td><td><code>Supabase</code></td><td>Banco Postgres + Auth + Storage, acessados por <code>@supabase/supabase-js</code>.</td></tr>
+        <tr><td>Servidor sob demanda</td><td><code>Edge Function</code></td><td>Função Deno no Supabase (<code>seatalk-2fa</code>) para o 2FA: fala com o bot do SeaTalk sem expor segredos ao navegador.</td></tr>
+        <tr><td>Hospedagem</td><td><code>Vercel</code></td><td>Publica o site na web e distribui pela CDN.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout">
+    <div class="k">Ponto importante</div>
+    <p>Não existe um “servidor de backend” próprio para manter. O React fala <strong>direto com o Supabase</strong>; toda a lógica de segurança e permissão mora no banco (RLS + funções). Isso simplifica a operação e reduz superfície de ataque.</p>
+  </div>
+</section>
+
+<!-- 4 · CAMADAS DE CÓDIGO / FLUXO -->
+<section id="fluxo">
+  <div class="snum">04 — CAMADAS DE CÓDIGO</div>
+  <h2>Como uma informação viaja pelo código</h2>
+  <div class="prose"><p>Toda tela segue o mesmo caminho. Exemplo real: abrir a lista de <strong>POPs</strong>.</p></div>
+  <ol class="steps">
+    <li><b>Tela</b> — <span><code>src/pages/Pop.tsx</code> precisa da lista e chama o hook <code>useAsync(getPops)</code>.</span></li>
+    <li><b>Camada de dados</b> — <span><code>src/data/content.ts → getPops()</code> faz <code>supabase.from('pops').select()</code> e converte a linha do banco (snake_case) para o formato do app (camelCase).</span></li>
+    <li><b>Cliente Supabase</b> — <span><code>src/lib/supabase.ts</code> (uma única conexão) envia a requisição HTTPS com o token da sessão do usuário.</span></li>
+    <li><b>Banco + RLS</b> — <span>o Postgres recebe, aplica as regras (o usuário está aprovado? é admin?) e devolve <strong>só as linhas permitidas</strong>.</span></li>
+    <li><b>De volta à tela</b> — <span>os dados voltam, o React renderiza os cards. Escrita (admin) segue o mesmo caminho por <code>src/data/admin.ts</code>.</span></li>
+  </ol>
+  <div class="grid g2">
+    <div class="card"><div class="k">Leitura pública</div><h4>src/data/content.ts</h4><p><code>getNews, getPops, getJobs, getPeople…</code> — buscam o conteúdo que o portal exibe.</p></div>
+    <div class="card"><div class="k">Escrita admin</div><h4>src/data/admin.ts</h4><p>CRUD genérico dirigido por <code>COLLECTIONS</code>: cria/edita/apaga qualquer coleção.</p></div>
+    <div class="card"><div class="k">Acessos & quiz</div><h4>access.ts · quiz.ts</h4><p>Aprovação de usuários, operações/localidades e o fluxo do quiz (com correção no servidor).</p></div>
+    <div class="card"><div class="k">Configuração</div><h4>settings.ts · navSettings.ts</h4><p>Links globais (SPX Reverser, Vagas) e visibilidade/ordem/nome das abas.</p></div>
+  </div>
+</section>
+
+<!-- 5 · MODELO DE DADOS -->
+<section id="dados">
+  <div class="snum">05 — MODELO DE DADOS</div>
+  <h2>Onde cada informação fica guardada</h2>
+  <div class="prose"><p>O banco tem <strong>22 tabelas</strong>, organizadas em grupos. Todas com RLS ligado.</p></div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Tabela</th><th>Grupo</th><th>Guarda</th></tr></thead>
+      <tbody>
+        <tr><td><code>profiles</code></td><td><span class="tag t-access">acesso</span></td><td>Perfil de cada usuário: nome, foto, papel (admin/viewer), status (pendente/aprovado), operação, localidade — e o controle de bloqueio por tentativas de login (tentativas, bloqueado).</td></tr>
+        <tr><td><code>admin_emails</code></td><td><span class="tag t-access">acesso</span></td><td>Lista de e-mails que recebem papel de administrador.</td></tr>
+        <tr><td><code>operations</code></td><td><span class="tag t-access">acesso</span></td><td>Operações (REG 1, REG 2, FULL…).</td></tr>
+        <tr><td><code>localities</code></td><td><span class="tag t-access">acesso</span></td><td>Localidades, cada uma ligada a uma operação.</td></tr>
+        <tr><td><code>news</code></td><td><span class="tag t-content">conteúdo</span></td><td>Notícias / matérias (aba Novidades e Destaque).</td></tr>
+        <tr><td><code>editions</code></td><td><span class="tag t-content">conteúdo</span></td><td>Edições do jornal “Jornada Reversa” (capa, Dica da Gestão, boas práticas…).</td></tr>
+        <tr><td><code>pops</code></td><td><span class="tag t-content">conteúdo</span></td><td>Procedimentos operacionais padrão, com etapas, status e link de download.</td></tr>
+        <tr><td><code>dashboards</code></td><td><span class="tag t-content">conteúdo</span></td><td>Painéis/relatórios externos (Looker, Power BI…).</td></tr>
+        <tr><td><code>tools</code></td><td><span class="tag t-content">conteúdo</span></td><td>Ferramentas da operação (SPX Reverser etc.).</td></tr>
+        <tr><td><code>jobs</code></td><td><span class="tag t-content">conteúdo</span></td><td>Vagas, com link de candidatura.</td></tr>
+        <tr><td><code>people</code></td><td><span class="tag t-content">conteúdo</span></td><td>O time: nome, cargo/nível, região, depoimento.</td></tr>
+        <tr><td><code>projects</code></td><td><span class="tag t-content">conteúdo</span></td><td>Projetos, com progresso e prazo.</td></tr>
+        <tr><td><code>quizzes</code></td><td><span class="tag t-quiz">quiz</span></td><td>O quiz da semana (título, período).</td></tr>
+        <tr><td><code>quiz_questions</code></td><td><span class="tag t-quiz">quiz</span></td><td>Perguntas e opções — <strong>a resposta certa nunca é enviada ao navegador</strong>.</td></tr>
+        <tr><td><code>quiz_attempts</code></td><td><span class="tag t-quiz">quiz</span></td><td>Cada tentativa: quem fez, nota, quando.</td></tr>
+        <tr><td><code>quiz_answers</code></td><td><span class="tag t-quiz">quiz</span></td><td>Cada resposta marcada, por questão.</td></tr>
+        <tr><td><code>nav_settings</code></td><td><span class="tag t-config">config</span></td><td>Quais abas aparecem, em que ordem e com que nome.</td></tr>
+        <tr><td><code>app_settings</code></td><td><span class="tag t-config">config</span></td><td>Ajustes globais: links do SPX Reverser, das Vagas etc.</td></tr>
+        <tr><td><code>reversa_now</code></td><td><span class="tag t-config">config</span></td><td>Itens do painel “Reversa Agora” na home.</td></tr>
+        <tr><td><code>security_events</code></td><td><span class="tag t-sec">segurança</span></td><td>Alertas de tentativa de invasão: registra quando uma conta é bloqueada por senha incorreta, para o admin liberar.</td></tr>
+        <tr><td><code>login_approvals</code></td><td><span class="tag t-sec">segurança</span></td><td>Pedidos de aprovação do 2FA por SeaTalk (token, validade de 2 min, status). Lido só pela Edge Function.</td></tr>
+        <tr><td><code>integrations</code></td><td><span class="tag t-sec">segurança</span></td><td>Credenciais da integração SeaTalk (App ID/Secret), gravadas pelo admin e lidas só pela Edge Function.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 6 · RELAÇÕES -->
+<section id="relacoes">
+  <div class="snum">06 — RELACIONAMENTO</div>
+  <h2>Como as informações conversam entre si</h2>
+  <div class="prose"><p>As tabelas não são ilhas. O <strong>perfil do usuário é o eixo central</strong>: ele liga a identidade (login) às permissões, e à operação/localidade. E o RLS usa esse perfil para decidir, em cada tabela, o que a pessoa vê.</p></div>
+
+  <div class="figure">
+    <svg viewBox="0 0 880 472" role="img" aria-label="Mapa de relacionamento entre as informações">
+      <defs>
+        <marker id="rl" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" class="flowfill"/></marker>
+      </defs>
+
+      <!-- lane labels -->
+      <text x="36" y="34" class="sub" font-size="10.5">IDENTIDADE &amp; CADASTRO</text>
+      <text x="392" y="34" class="sub" font-size="10.5">EIXO CENTRAL</text>
+      <text x="644" y="34" class="sub" font-size="10.5">PORTARIA → TABELAS</text>
+
+      <!-- SOURCES (left) -->
+      <rect x="36" y="52" width="176" height="56" rx="11" class="n-fill n-stroke" stroke-width="1.4"/>
+      <text x="52" y="78" class="lbl" font-size="13">Supabase Auth</text>
+      <text x="52" y="96" class="sub" font-size="10">login · e-mail / OpsID</text>
+
+      <rect x="36" y="150" width="176" height="56" rx="11" class="n-fill n-stroke" stroke-width="1.4"/>
+      <text x="52" y="176" class="lbl" font-size="13">admin_emails</text>
+      <text x="52" y="194" class="sub" font-size="10">quem vira admin</text>
+
+      <rect x="36" y="346" width="118" height="48" rx="10" class="n-fill n-stroke" stroke-width="1.3"/>
+      <text x="52" y="374" class="lbl" font-size="12">operations</text>
+      <rect x="176" y="346" width="118" height="48" rx="10" class="n-fill n-stroke" stroke-width="1.3"/>
+      <text x="192" y="374" class="lbl" font-size="12">localities</text>
+
+      <!-- PROFILES hub (center) -->
+      <rect x="372" y="150" width="184" height="86" rx="13" style="fill:var(--accent-soft)" stroke="var(--accent)" stroke-width="1.8"/>
+      <text x="392" y="184" class="lbl" font-size="16" style="fill:var(--accent-ink)">profiles</text>
+      <text x="392" y="205" class="sub" font-size="10.5" style="fill:var(--accent-ink)">papel · status</text>
+      <text x="392" y="221" class="sub" font-size="10.5" style="fill:var(--accent-ink)">operação · localidade</text>
+
+      <!-- RLS gate (right top) -->
+      <rect x="644" y="50" width="204" height="84" rx="12" class="n-fill n-stroke" stroke-width="1.7"/>
+      <text x="660" y="78" class="lbl" font-size="12.5">🔒 RLS · is_approved()</text>
+      <text x="708" y="96" class="lbl" font-size="12.5">is_admin()</text>
+      <text x="660" y="116" class="sub" font-size="10">lê o profile e decide o</text>
+      <text x="660" y="129" class="sub" font-size="10">que cada pessoa enxerga</text>
+
+      <!-- clusters (right) -->
+      <rect x="644" y="172" width="204" height="54" rx="11" style="fill:var(--accent-soft)" stroke="var(--accent)" stroke-width="1.2"/>
+      <text x="660" y="196" class="lbl" font-size="12.5" style="fill:var(--accent-ink)">Conteúdo</text>
+      <text x="660" y="213" class="sub" font-size="9.5" style="fill:var(--accent-ink)">news · pops · jobs · people · …</text>
+
+      <rect x="644" y="248" width="204" height="72" rx="11" style="fill:var(--violet-soft)" stroke="var(--violet)" stroke-width="1.2"/>
+      <text x="660" y="272" class="lbl" font-size="12.5" style="fill:var(--violet)">Quiz</text>
+      <text x="660" y="289" class="sub" font-size="9.5" style="fill:var(--violet)">quizzes → questions</text>
+      <text x="660" y="304" class="sub" font-size="9.5" style="fill:var(--violet)">attempts → answers</text>
+
+      <rect x="644" y="342" width="204" height="54" rx="11" style="fill:var(--ok-soft)" stroke="var(--ok)" stroke-width="1.2"/>
+      <text x="660" y="366" class="lbl" font-size="12.5" style="fill:var(--ok)">Config da interface</text>
+      <text x="660" y="383" class="sub" font-size="9.5" style="fill:var(--ok)">nav · app_settings · reversa_now</text>
+
+      <!-- ARROWS -->
+      <!-- Auth -> profiles -->
+      <path d="M212 80 C 300 92, 322 176, 370 184" fill="none" class="flow" stroke-width="1.6" marker-end="url(#rl)"/>
+      <text x="228" y="128" class="sub" font-size="10">cria perfil (trigger)</text>
+      <!-- admin_emails -> profiles -->
+      <path d="M212 178 C 288 184, 320 198, 370 202" fill="none" class="flow" stroke-width="1.6" marker-end="url(#rl)"/>
+      <text x="238" y="166" class="sub" font-size="10">define papel</text>
+      <!-- operations -> localities -->
+      <path d="M154 370 L 174 370" class="flow" stroke-width="1.6" marker-end="url(#rl)"/>
+      <text x="150" y="336" class="sub" font-size="9.5">pertence a</text>
+      <!-- localities/operations -> profiles (cadastro) -->
+      <path d="M240 346 C 320 316, 388 268, 458 238" fill="none" class="flow" stroke-width="1.4" stroke-dasharray="4 4" marker-end="url(#rl)"/>
+      <text x="300" y="300" class="sub" font-size="10">escolhidos no cadastro</text>
+      <!-- profiles -> RLS -->
+      <path d="M556 180 C 604 152, 618 120, 642 100" fill="none" class="flow" stroke-width="1.6" marker-end="url(#rl)"/>
+      <text x="560" y="156" class="sub" font-size="10">consultado pelo RLS</text>
+      <!-- RLS -> Conteúdo -->
+      <path d="M746 134 L 746 170" class="flow" stroke-width="1.6" marker-end="url(#rl)"/>
+      <text x="754" y="158" class="sub" font-size="9.5">libera</text>
+      <!-- spine linking the 3 gated clusters -->
+      <path d="M632 199 L 632 369" class="flow" stroke-width="1.3" opacity="0.5"/>
+      <path d="M632 199 L 642 199" class="flow" stroke-width="1.3" opacity="0.5"/>
+      <path d="M632 284 L 642 284" class="flow" stroke-width="1.3" opacity="0.5" marker-end="url(#rl)"/>
+      <path d="M632 369 L 642 369" class="flow" stroke-width="1.3" opacity="0.5" marker-end="url(#rl)"/>
+    </svg>
+    <div class="figcap">Fig. 2 — O perfil liga login → permissões → operação. O RLS lê esse perfil e é ele quem faz as tabelas “conversarem” com a pessoa certa.</div>
+  </div>
+
+  <h3>As conexões, em palavras</h3>
+  <ul class="clean">
+    <li><strong>Login → Perfil:</strong> ao cadastrar, um <em>trigger</em> cria automaticamente uma linha em <code>profiles</code> com o mesmo id do usuário do Auth. Perfil e login são a mesma pessoa.</li>
+    <li><strong>Perfil → Permissão:</strong> se o e-mail está em <code>admin_emails</code>, o perfil vira <strong>admin</strong>; senão é <strong>viewer</strong> e precisa ser <strong>aprovado</strong> para ver conteúdo.</li>
+    <li><strong>Operação → Localidade:</strong> cada localidade pertence a uma operação; no cadastro a pessoa escolhe as duas, e isso fica no perfil (usado nos relatórios do quiz por operação).</li>
+    <li><strong>Quiz encadeado:</strong> <code>quizzes</code> tem várias <code>quiz_questions</code>; cada <code>quiz_attempt</code> (de um usuário) gera várias <code>quiz_answers</code>. A correção acontece no banco, nunca no navegador.</li>
+    <li><strong>Config → Interface:</strong> <code>nav_settings</code> decide abas/ordem/nome; <code>app_settings</code> guarda links globais; <code>reversa_now</code> alimenta o painel da home. Mexer nessas tabelas muda o portal na hora.</li>
+    <li><strong>O RLS é o tradutor:</strong> toda leitura passa por <code>is_approved()</code>/<code>is_admin()</code>, que consultam o <code>profiles</code>. É assim que “a informação certa chega na pessoa certa”.</li>
+    <li><strong>Perfil → Segurança:</strong> tentativas de login erradas contam no <code>profiles</code>; ao travar, gera um registro em <code>security_events</code> que o admin vê e resolve ao liberar a conta.</li>
+    <li><strong>Perfil → 2FA:</strong> o <code>employee_code</code> do SeaTalk fica no <code>profiles</code>; o login com 2FA cria um <code>login_approvals</code> e só abre o portal após a aprovação no bot.</li>
+  </ul>
+</section>
+
+<!-- 7 · SEGURANÇA -->
+<section id="seg">
+  <div class="snum">07 — SEGURANÇA</div>
+  <h2>O que protege os dados</h2>
+  <div class="grid g2">
+    <div class="card"><div class="k">No banco</div><h4>Row-Level Security (RLS)</h4><p>Ligado nas 23 tabelas. Sem uma regra que permita, a linha não sai do banco — nem por API direta.</p></div>
+    <div class="card"><div class="k">Funções</div><h4>is_approved() · is_admin()</h4><p>Decidem leitura (aprovados) e escrita (só admin). O quiz é corrigido no servidor (<code>submit_quiz</code>).</p></div>
+    <div class="card"><div class="k">Imagens</div><h4>Storage restrito</h4><p>Buckets <code>avatars</code> e <code>media</code> aceitam só imagem, até 6&nbsp;MB.</p></div>
+    <div class="card"><div class="k">Rede</div><h4>Cabeçalhos HTTP</h4><p>CSP, HSTS, X-Frame-Options e nosniff na Vercel — anti-clickjacking e anti-injeção.</p></div>
+  </div>
+
+  <h3>Trava de acesso por tentativas (anti-invasão)</h3>
+  <div class="prose"><p>Depois de <strong>5 tentativas</strong> de senha incorreta, a conta é <strong>bloqueada</strong> e só um administrador consegue liberar. A trava é ancorada no banco, não só na tela.</p></div>
+  <ol class="steps">
+    <li><b>Conta a falha</b> — <span>cada erro chama <code>record_login_failure()</code>, que soma a tentativa no perfil.</span></li>
+    <li><b>Bloqueia no limite</b> — <span>ao chegar em 5, marca <code>locked = true</code>. Administradores nunca são travados (para nunca prender todos os admins).</span></li>
+    <li><b>Fecha no banco</b> — <span><code>is_approved()</code> passa a exigir conta <strong>não bloqueada</strong>: uma conta travada não lê <strong>nada</strong>, mesmo por API direta com a senha certa.</span></li>
+    <li><b>Alerta o admin</b> — <span>o bloqueio registra um evento em <code>security_events</code>, que aparece como <strong>alerta de segurança</strong> no painel de Acessos.</span></li>
+    <li><b>Só o admin libera</b> — <span><code>admin_unlock_user()</code> desbloqueia e resolve o alerta. O usuário só volta a ver o portal depois disso.</span></li>
+  </ol>
+  <div class="callout">
+    <div class="k">Camadas de defesa contra força-bruta</div>
+    <p>O <strong>rate-limit nativo do Supabase Auth</strong> barra a força-bruta crua no endpoint de login; a <strong>trava de conta</strong> acima é a regra de negócio “bloqueia e só o admin libera”. O envio de <strong>e-mail</strong> ao admin no bloqueio já está previsto (gancho pronto) — falta apenas plugar um serviço de envio.</p>
+  </div>
+
+  <h3>Verificação em duas etapas (2FA) por aprovação no SeaTalk</h3>
+  <div class="prose"><p>Opcional por usuário. Quando ligado, além da senha o login exige uma <strong>aprovação no bot do SeaTalk</strong> — em até 2 minutos, senão o acesso não é liberado.</p></div>
+  <ol class="steps">
+    <li><b>Senha OK, mas ainda barrado</b> — <span>com 2FA ligado, <code>is_approved()</code> exige uma aprovação recente; sem ela, o portal mostra “Aguardando aprovação no SeaTalk”.</span></li>
+    <li><b>Solicitação no bot</b> — <span>a Edge Function <code>seatalk-2fa</code> pede um token do app SeaTalk e envia ao usuário uma mensagem com o link de aprovação (registro em <code>login_approvals</code>, validade 2 min).</span></li>
+    <li><b>Aprovação</b> — <span>o usuário toca no link (página <code>/aprovar</code> no portal) e confirma. Isso libera o acesso por 12h.</span></li>
+    <li><b>Identidade no SeaTalk</b> — <span>o <code>employee_code</code> de cada pessoa é <strong>capturado automaticamente</strong>: ao mandar “oi” ao bot, o Event Callback casa o e-mail com o perfil e salva o código.</span></li>
+  </ol>
+  <div class="callout">
+    <div class="k">Segredos do 2FA nunca vão ao navegador</div>
+    <p>App ID/Secret do SeaTalk ficam na tabela <code>integrations</code> (RLS: só a Edge Function lê). O navegador nunca fala direto com o SeaTalk — toda a conversa passa pela função no servidor.</p>
+  </div>
+
+  <div class="callout">
+    <div class="k">Sobre a chave que aparece no código</div>
+    <p>A <em>publishable key</em> do Supabase é pública por design — ela só permite <strong>tentar</strong> acessar; quem realmente libera os dados é o RLS. A chave secreta (<code>service_role</code>) <strong>nunca</strong> vai para o navegador. Nenhum segredo fica versionado no Git.</p>
+  </div>
+</section>
+
+<!-- 7B · AUDITORIA DE SEGURANÇA -->
+<section id="auditoria">
+  <div class="snum">✓ AUDITORIA DE SEGURANÇA</div>
+  <h2>Validações verificadas no banco</h2>
+  <div class="prose"><p>Checagem executada direto no Postgres e no código (última verificação em <strong>2026-08-27</strong>). Cada item abaixo foi <strong>confirmado com consulta real</strong> ao banco — não é declaração de intenção.</p></div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Validação</th><th>Status</th><th>Como foi verificado</th></tr></thead>
+      <tbody>
+        <tr><td>Rotas de API exigem autenticação</td><td><span class="tag t-config">OK</span></td><td>RLS barra todo acesso a dados (mesmo por REST direta); a Edge Function valida o usuário nas rotas protegidas</td></tr>
+        <tr><td>Senhas com hash forte</td><td><span class="tag t-config">OK</span></td><td>Todas as senhas em <strong>bcrypt</strong> (<code>$2a$10$…</code>, 60 chars) em <code>auth.users</code> — nunca em texto puro</td></tr>
+        <tr><td>Limite de tentativas de login (rate-limit)</td><td><span class="tag t-config">OK</span></td><td>Trava em <strong>5 tentativas</strong> (<code>record_login_failure</code>) + rate-limit nativo do Supabase Auth</td></tr>
+        <tr><td>Conta bloqueada não lê nada</td><td><span class="tag t-config">OK</span></td><td><code>is_approved()</code> exige conta não bloqueada — mesmo com a senha certa por API direta</td></tr>
+        <tr><td>Rate-limit no login sem senha</td><td><span class="tag t-config">OK</span></td><td>Máx. <strong>3 pedidos por conta a cada 2 min</strong> no <code>magic=request</code> — barra spam de aprovações no SeaTalk (roda no servidor)</td></tr>
+        <tr><td>Acesso de emergência (break-glass)</td><td><span class="tag t-config">OK</span></td><td>Login por senha <strong>só para admin</strong>, caso o SeaTalk fique indisponível — evita lockout total (conta não-admin é encerrada na hora)</td></tr>
+        <tr><td>Alerta de segurança em tempo real</td><td><span class="tag t-config">OK</span></td><td>Login recusado no 2FA (&ldquo;Não fui eu&rdquo;) <strong>notifica os admins no SeaTalk</strong> na hora, além de registrar em <code>security_events</code></td></tr>
+        <tr><td>Superfície da Edge Function reduzida</td><td><span class="tag t-config">OK</span></td><td>Rotas de diagnóstico (<code>?lookup=</code>, <code>?sendtest=</code>) removidas da função em produção</td></tr>
+        <tr><td>RLS ligado nas tabelas</td><td><span class="tag t-config">OK</span></td><td><strong>23/23 tabelas</strong> do schema público com RLS ativo</td></tr>
+        <tr><td>Tabelas de segredo isoladas (deny-all)</td><td><span class="tag t-config">OK</span></td><td><code>integrations</code>, <code>login_approvals</code>, <code>password_resets</code>: RLS + <strong>0 políticas</strong> = só a Edge Function (service_role) acessa</td></tr>
+        <tr><td>Funções sensíveis validam admin por dentro</td><td><span class="tag t-config">OK</span></td><td><code>set_seatalk_config</code>, <code>admin_unlock_user</code>, <code>seatalk_config_status</code> checam <code>is_admin()</code> e nunca devolvem o segredo</td></tr>
+        <tr><td>Correção do quiz no servidor</td><td><span class="tag t-config">OK</span></td><td><code>submit_quiz</code> (SECURITY DEFINER) — a resposta certa nunca vai ao navegador</td></tr>
+        <tr><td>Perfil sem auto-promoção</td><td><span class="tag t-config">OK</span></td><td><code>update_my_profile</code> só altera colunas seguras — o usuário não vira admin sozinho</td></tr>
+        <tr><td>Transporte e cabeçalhos HTTP</td><td><span class="tag t-config">OK</span></td><td>HTTPS/TLS ponta a ponta + CSP, HSTS, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy na Vercel</td></tr>
+        <tr><td>Segredos fora do versionamento</td><td><span class="tag t-config">OK</span></td><td><code>.env</code> no <code>.gitignore</code>; <code>service_role</code> nunca vai ao navegador; App ID/Secret só no banco</td></tr>
+        <tr><td>Política de senha no cadastro</td><td><span class="tag t-config">OK</span></td><td>Mínimo de <strong>8 caracteres</strong> + exige maiúsculas, minúsculas e números (ativo no plano free). <em>Leaked Password Protection</em> (HaveIBeenPwned) é recurso do plano Pro — não aplicável hoje</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>2FA por e-mail — sem “oi” no bot</h3>
+  <div class="prose"><p>A verificação em duas etapas foi endurecida: a Edge Function descobre o <code>employee_code</code> de cada pessoa <strong>pelo e-mail corporativo</strong> (API <code>get_employee_code_with_email</code>, “No&nbsp;Limit”), sem depender de a pessoa iniciar conversa com o bot. Basta o funcionário estar no <strong>Service Scope</strong> (por departamento/subteam ou whitelist) para receber a aprovação com os botões <strong>Aprovar / Não fui eu</strong>.</p></div>
+
+  <div class="callout">
+    <div class="k">Consideração de disponibilidade (não é falha)</div>
+    <p>Como <code>record_login_failure</code> precisa ser chamável antes do login, em tese alguém poderia forçar o bloqueio de uma conta conhecida (o admin destrava em 1 clique). É inerente a qualquer sistema de lockout; pode ser endurecido com captcha, se desejado.</p>
+  </div>
+</section>
+
+<!-- 8 · DEPLOY -->
+<section id="deploy">
+  <div class="snum">08 — PUBLICAÇÃO</div>
+  <h2>Como uma mudança chega ao ar</h2>
+  <ol class="steps">
+    <li><b>Código</b> — <span>a alteração é feita e validada com <code>npm run build</code>.</span></li>
+    <li><b>Commit + push</b> — <span>vai para a branch de trabalho no GitHub.</span></li>
+    <li><b>Merge na <code>main</code></b> — <span>a <code>main</code> é a branch de produção.</span></li>
+    <li><b>Deploy automático</b> — <span>a Vercel detecta o push, faz o build e publica em <code>jornada-reversa.vercel.app</code> em ~1 min.</span></li>
+  </ol>
+  <div class="callout">
+    <div class="k">O banco é separado do deploy</div>
+    <p>Publicar o site <strong>não</strong> altera o banco. Conteúdo (notícias, POPs, quiz…) é gerenciado pelo <strong>painel admin</strong> em tempo real; mudanças de <em>estrutura</em> do banco são feitas à parte, direto no Supabase.</p>
+  </div>
+</section>
+
+<!-- 9 · DESEMPENHO -->
+<section id="perf">
+  <div class="snum">09 — DESEMPENHO</div>
+  <h2>Teste de velocidade e abertura</h2>
+  <div class="prose"><p>Medição via <strong>Google Lighthouse (mobile)</strong>. Os quatro índices de qualidade e, abaixo, os tempos reais de carregamento (Core Web Vitals).</p></div>
+
+  <div class="scores">
+    <div class="score"><div class="ring" style="--v:89;--c:#E0912B"><i>89</i></div><div class="name">Desempenho</div></div>
+    <div class="score"><div class="ring" style="--v:89;--c:#E0912B"><i>89</i></div><div class="name">Acessibilidade</div></div>
+    <div class="score"><div class="ring" style="--v:100;--c:var(--ok)"><i>100</i></div><div class="name">Melhores práticas</div></div>
+    <div class="score"><div class="ring" style="--v:91;--c:var(--ok)"><i>91</i></div><div class="name">SEO</div></div>
+  </div>
+
+  <div class="vitals">
+    <div class="vital"><div class="vk">FCP · 1º conteúdo</div><div class="vv">2,7s</div><div class="vs good">✓ bom</div></div>
+    <div class="vital"><div class="vk">LCP · maior elemento</div><div class="vv">2,7s</div><div class="vs good">✓ bom</div></div>
+    <div class="vital"><div class="vk">TBT · bloqueio</div><div class="vv">0ms</div><div class="vs good">✓ ótimo</div></div>
+    <div class="vital"><div class="vk">CLS · estabilidade</div><div class="vv">0</div><div class="vs good">✓ ótimo</div></div>
+    <div class="vital"><div class="vk">Speed Index</div><div class="vv">4,3s</div><div class="vs good">✓ bom</div></div>
+  </div>
+
+  <div class="callout">
+    <div class="k">Melhorias aplicadas depois desta medição</div>
+    <p>Estes números são a <strong>linha de base</strong>. Depois do teste subimos: <strong>SEO</strong> (robots.txt, sitemap.xml, Open Graph e dados estruturados JSON-LD) e <strong>Acessibilidade</strong> (contraste do texto secundário ajustado para o padrão WCAG&nbsp;AA) — então esses dois índices tendem a estar mais altos hoje. TBT&nbsp;0ms e CLS&nbsp;0 indicam uma página que abre sem travar e sem “pular” o layout.</p>
+  </div>
+  <div class="callout ok">
+    <div class="k">Code-splitting por rota (carregamento sob demanda)</div>
+    <p>Cada página virou um pacote separado (<code>React.lazy</code> + <code>Suspense</code>): o pacote inicial caiu de <strong>~659&nbsp;KB para ~446&nbsp;KB</strong> (gzip 171&nbsp;→&nbsp;128&nbsp;KB). Um operador que só lê POP <strong>não baixa mais o painel admin</strong> — melhora o LCP no celular/3G do CD.</p>
+  </div>
+  <p class="figcap" style="margin-top:14px">Referência de leitura: FCP/LCP até ~2,5s = ótimo e até ~4s = bom · TBT até 200ms = bom · CLS até 0,1 = bom.</p>
+</section>
+</div>
+
+<footer><div class="wrap">
+  <span>SPX Reversa · Documentação de arquitetura</span>
+  <span>Atualizado em 2026-08-23</span>
+</div></footer>
+
+</body></html>
